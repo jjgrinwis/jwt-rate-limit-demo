@@ -97,6 +97,16 @@
       opacity: 0.35;
     }
 
+    .field-hint {
+      font-size: 0.78rem;
+      color: #64748b;
+      margin-top: 0.5rem;
+    }
+
+    .field-hint strong {
+      color: #94a3b8;
+    }
+
     button {
       width: 100%;
       background: #7c3aed;
@@ -185,6 +195,7 @@
           <input type="radio" name="rate-limit" value="10"> 10 requests
         </label>
       </div>
+      <p class="field-hint">Total quota: <strong>50 calls / hour</strong></p>
     </div>
 
     <div class="field">
@@ -349,7 +360,7 @@
           if (useExpired) {
             appendLine(`Expired JWT generated for "${name}"`, 'line-err');
           } else {
-            appendLine(`JWT generated for "${name}" (limit: ${limit}/60s)`, 'line-info');
+            appendLine(`JWT generated for "${name}" (limit: ${limit}/60s, quota: 50/hour)`, 'line-info');
           }
           appendLine(`ID: ${result.sub}`, 'line-info');
         } catch (err) {
