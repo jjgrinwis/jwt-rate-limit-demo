@@ -210,6 +210,18 @@
     </div>
 
     <div class="field">
+      <label>Serve From</label>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="serve-from" value="origin" checked> Origin
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="serve-from" value="cache"> Akamai Cache
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
       <label>Token Options</label>
       <div class="radio-group">
         <label class="radio-option">
@@ -256,16 +268,14 @@
       return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
     }
 
-    async function getSubject() {
-      let ipHash = 'unknown';
-      try {
-        const res = await fetch('https://api.ipify.org?format=json');
-        const { ip } = await res.json();
-        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip));
-        ipHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 8);
-      } catch (_) {}
+    function getSubject() {
+      let browserId = localStorage.getItem('demo-browser-id');
+      if (!browserId) {
+        browserId = crypto.randomUUID();
+        localStorage.setItem('demo-browser-id', browserId);
+      }
       const hourEpoch = Math.floor(Date.now() / 3_600_000);
-      return `${ipHash}-${hourEpoch}`;
+      return `${browserId.slice(0, 8)}-${hourEpoch}`;
     }
 
     async function buildJWT(name, limit, quota = 50, expired = false) {
@@ -274,7 +284,7 @@
       const iat     = expired ? now - 7200 : now;
       const exp     = expired ? now - 3600 : now + 3600;
       const payload = {
-        sub: await getSubject(),
+        sub: getSubject(),
         name,
         rate_limit: { limit, window: 60 },
         quota,
@@ -349,6 +359,7 @@
       const name       = document.getElementById('name-input').value.trim();
       const limit      = parseInt(document.querySelector('input[name="rate-limit"]:checked').value, 10);
       const quota      = parseInt(document.querySelector('input[name="quota"]:checked').value, 10);
+      const serveFrom  = document.querySelector('input[name="serve-from"]:checked').value;
       const useExpired = optExpired.checked;
       const useInvalid = optInvalid.checked;
 
@@ -375,6 +386,7 @@
             appendLine(`JWT generated for "${name}" (limit: ${limit}/60s, quota: ${quota}/hour)`, 'line-info');
           }
           appendLine(`ID: ${result.sub}`, 'line-info');
+        appendLine(`Serving from: ${serveFrom === 'cache' ? 'Akamai Cache' : 'Origin'}`, 'line-info');
         } catch (err) {
           appendLine('Error generating JWT: ' + err.message, 'line-err');
           startBtn.disabled = false;
@@ -390,14 +402,15 @@
         const t0 = performance.now();
         let status, statusText, elapsed;
 
-        let detail = null;
+        let detail = null, cacheStatus = '—';
         try {
-          const res = await fetch(API_URL, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const headers = { Authorization: `Bearer ${token}` };
+          if (serveFrom === 'cache') headers['serve-headers-from-cache'] = 'true';
+          const res = await fetch(API_URL, { headers });
           elapsed    = Math.round(performance.now() - t0);
           status     = res.status;
           statusText = res.statusText || httpPhrase(status);
+          cacheStatus = res.headers.get('akamai-cache-status') ?? '—';
           if (status < 200 || status >= 300) {
             try { detail = (await res.json()).detail ?? null; } catch (_) {}
           }
@@ -409,21 +422,22 @@
 
         const tag = `#${String(i).padStart(2, '0')}`;
 
+        const cache = `[${cacheStatus}]`;
         if (status === 0) {
           appendLine(`${tag}  ERROR  ${statusText}  (${elapsed}ms)`, 'line-err');
           showBanner('Network error — check console for details.', 'banner-err');
           stopped = true;
           break;
         } else if (status === 429) {
-          appendLine(`${tag}  ${status} ${statusText}  (${elapsed}ms)`, 'line-429');
+          appendLine(`${tag}  ${status} ${statusText}  ${cache}  (${elapsed}ms)`, 'line-429');
           if (detail) appendLine(`     ↳ ${detail}`, 'line-429');
           showBanner(`429 Too Many Requests — ${detail ?? 'rate limit reached'} after ${i - 1} successful calls.`, 'banner-429');
           stopped = true;
           break;
         } else if (status >= 200 && status < 300) {
-          appendLine(`${tag}  ${status} ${statusText}  (${elapsed}ms)`, 'line-ok');
+          appendLine(`${tag}  ${status} ${statusText}  ${cache}  (${elapsed}ms)`, 'line-ok');
         } else {
-          appendLine(`${tag}  ${status} ${statusText}  (${elapsed}ms)`, 'line-err');
+          appendLine(`${tag}  ${status} ${statusText}  ${cache}  (${elapsed}ms)`, 'line-err');
           if (detail) appendLine(`     ↳ ${detail}`, 'line-err');
           showBanner(`${status} ${statusText}${detail ? ` — ${detail}` : ''}`, 'banner-err');
           stopped = true;
