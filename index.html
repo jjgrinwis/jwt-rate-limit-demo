@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JWT Rate-Limit Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #a78bfa;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 1.75rem;
+    }
+
+    .field {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #94a3b8;
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 1rem;
+      padding: 0.6rem 0.75rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #7c3aed;
+    }
+
+    .radio-group {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      font-size: 0.95rem;
+      color: #cbd5e1;
+    }
+
+    .radio-option input[type="radio"],
+    .radio-option input[type="checkbox"] {
+      accent-color: #7c3aed;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .radio-option.dimmed {
+      opacity: 0.35;
+    }
+
+    button {
+      width: 100%;
+      background: #7c3aed;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 0.7rem 1rem;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      margin-top: 0.5rem;
+    }
+
+    button:hover:not(:disabled) {
+      background: #6d28d9;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .output-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 1.5rem;
+      margin-bottom: 0.4rem;
+    }
+
+    #output {
+      background: #080a0f;
+      border: 1px solid #1e2236;
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.85rem;
+      line-height: 1.7;
+      min-height: 120px;
+      max-height: 320px;
+      overflow-y: auto;
+      white-space: pre;
+    }
+
+    .line-ok   { color: #4ade80; }
+    .line-429  { color: #f87171; font-weight: 600; }
+    .line-err  { color: #fb923c; }
+    .line-info { color: #64748b; }
+    .line-done { color: #a78bfa; font-weight: 600; }
+
+    #status-banner {
+      display: none;
+      margin-top: 1rem;
+      border-radius: 6px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .banner-ok  { background: #14532d; color: #4ade80; }
+    .banner-429 { background: #450a0a; color: #f87171; }
+    .banner-err { background: #431407; color: #fb923c; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>JWT Rate-Limit Demo</h1>
+    <p class="subtitle">Zuplo + Akamai EdgeWorker dynamic rate-limiting</p>
+
+    <div class="field">
+      <label for="name-input">Your Name</label>
+      <input type="text" id="name-input" placeholder="e.g. Alice" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label>Rate Limit (requests / 60 s)</label>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="rate-limit" value="5" checked> 5 requests
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="rate-limit" value="10"> 10 requests
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Token Options</label>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="checkbox" id="opt-expired"> Expired JWT
+        </label>
+        <label class="radio-option">
+          <input type="checkbox" id="opt-invalid"> Invalid token
+        </label>
+      </div>
+    </div>
+
+    <button id="start-btn">Start Demo</button>
+
+    <div class="output-label">Output</div>
+    <div id="output"><span class="line-info">Ready. Fill in your name and press Start.</span></div>
+
+    <div id="status-banner"></div>
+  </div>
+
+  <script>
+    const SECRET = 'a-string-secret-at-least-256-bits-long';
+    const API_URL = 'https://api.grinwis.com/rate-limit-demo';
+
+    // ── JWT helpers ──────────────────────────────────────────────────────────
+
+    function b64url(str) {
+      // encode Uint8Array or string to base64url
+      let bytes;
+      if (typeof str === 'string') {
+        bytes = new TextEncoder().encode(str);
+      } else {
+        bytes = str;
+      }
+      let binary = '';
+      bytes.forEach(b => binary += String.fromCharCode(b));
+      return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+
+    async function getSubject() {
+      let ipHash = 'unknown';
+      try {
+        const res = await fetch('https://api.ipify.org?format=json');
+        const { ip } = await res.json();
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip));
+        ipHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 8);
+      } catch (_) {}
+      const hourEpoch = Math.floor(Date.now() / 3_600_000);
+      return `${ipHash}-${hourEpoch}`;
+    }
+
+    async function buildJWT(name, limit, expired = false) {
+      const header  = { alg: 'HS256', typ: 'JWT' };
+      const now     = Math.floor(Date.now() / 1000);
+      const iat     = expired ? now - 7200 : now;
+      const exp     = expired ? now - 3600 : now + 3600;
+      const payload = {
+        sub: await getSubject(),
+        name,
+        rate_limit: { limit, window: 60 },
+        quota: 50,
+        iat,
+        exp,
+      };
+
+      const hdr = b64url(JSON.stringify(header));
+      const pld = b64url(JSON.stringify(payload));
+      const signingInput = `${hdr}.${pld}`;
+
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(SECRET),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+
+      const sigBuf = await crypto.subtle.sign('HMAC', keyMaterial, new TextEncoder().encode(signingInput));
+      const sig    = b64url(new Uint8Array(sigBuf));
+
+      return { token: `${signingInput}.${sig}`, sub: payload.sub };
+    }
+
+    // ── UI helpers ───────────────────────────────────────────────────────────
+
+    const outputEl    = document.getElementById('output');
+    const banner      = document.getElementById('status-banner');
+    const startBtn    = document.getElementById('start-btn');
+    const optExpired  = document.getElementById('opt-expired');
+    const optInvalid  = document.getElementById('opt-invalid');
+
+    // Make the two checkboxes mutually exclusive
+    [optExpired, optInvalid].forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          const other = cb === optExpired ? optInvalid : optExpired;
+          other.checked = false;
+          other.closest('.radio-option').classList.add('dimmed');
+        } else {
+          const other = cb === optExpired ? optInvalid : optExpired;
+          other.closest('.radio-option').classList.remove('dimmed');
+        }
+      });
+    });
+
+    function clearOutput() {
+      outputEl.innerHTML = '';
+      banner.style.display = 'none';
+      banner.className = '';
+      banner.textContent = '';
+    }
+
+    function appendLine(text, cls) {
+      const span = document.createElement('span');
+      span.className = cls;
+      span.textContent = text + '\n';
+      outputEl.appendChild(span);
+      outputEl.scrollTop = outputEl.scrollHeight;
+    }
+
+    function showBanner(text, cls) {
+      banner.textContent = text;
+      banner.className   = cls;
+      banner.style.display = 'block';
+    }
+
+    // ── Main demo ────────────────────────────────────────────────────────────
+
+    startBtn.addEventListener('click', async () => {
+      const name       = document.getElementById('name-input').value.trim();
+      const limit      = parseInt(document.querySelector('input[name="rate-limit"]:checked').value, 10);
+      const useExpired = optExpired.checked;
+      const useInvalid = optInvalid.checked;
+
+      if (!name) {
+        document.getElementById('name-input').focus();
+        return;
+      }
+
+      startBtn.disabled = true;
+      clearOutput();
+
+      let token;
+
+      if (useInvalid) {
+        token = 'invalid.token.value';
+        appendLine('Using invalid token', 'line-err');
+      } else {
+        try {
+          const result = await buildJWT(name, limit, useExpired);
+          token = result.token;
+          if (useExpired) {
+            appendLine(`Expired JWT generated for "${name}"`, 'line-err');
+          } else {
+            appendLine(`JWT generated for "${name}" (limit: ${limit}/60s)`, 'line-info');
+          }
+          appendLine(`ID: ${result.sub}`, 'line-info');
+        } catch (err) {
+          appendLine('Error generating JWT: ' + err.message, 'line-err');
+          startBtn.disabled = false;
+          return;
+        }
+      }
+      appendLine('─'.repeat(42), 'line-info');
+
+      const maxRequests = (useExpired || useInvalid) ? 1 : limit + 2;
+      let stopped = false;
+
+      for (let i = 1; i <= maxRequests; i++) {
+        const t0 = performance.now();
+        let status, statusText, elapsed;
+
+        let detail = null;
+        try {
+          const res = await fetch(API_URL, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          elapsed    = Math.round(performance.now() - t0);
+          status     = res.status;
+          statusText = res.statusText || httpPhrase(status);
+          if (status < 200 || status >= 300) {
+            try { detail = (await res.json()).detail ?? null; } catch (_) {}
+          }
+        } catch (err) {
+          elapsed    = Math.round(performance.now() - t0);
+          status     = 0;
+          statusText = 'Network error: ' + err.message;
+        }
+
+        const tag = `#${String(i).padStart(2, '0')}`;
+
+        if (status === 0) {
+          appendLine(`${tag}  ERROR  ${statusText}  (${elapsed}ms)`, 'line-err');
+          showBanner('Network error — check console for details.', 'banner-err');
+          stopped = true;
+          break;
+        } else if (status === 429) {
+          appendLine(`${tag}  ${status} ${statusText}  (${elapsed}ms)`, 'line-429');
+          if (detail) appendLine(`     ↳ ${detail}`, 'line-429');
+          showBanner(`429 Too Many Requests — rate limit reached after ${i - 1} successful calls.`, 'banner-429');
+          stopped = true;
+          break;
+        } else if (status >= 200 && status < 300) {
+          appendLine(`${tag}  ${status} ${statusText}  (${elapsed}ms)`, 'line-ok');
+        } else {
+          appendLine(`${tag}  ${status} ${statusText}  (${elapsed}ms)`, 'line-err');
+          if (detail) appendLine(`     ↳ ${detail}`, 'line-err');
+          showBanner(`${status} ${statusText}${detail ? ` — ${detail}` : ''}`, 'banner-err');
+          stopped = true;
+          break;
+        }
+      }
+
+      if (!stopped) {
+        appendLine('─'.repeat(42), 'line-info');
+        appendLine(`All ${maxRequests} requests completed without hitting the limit.`, 'line-done');
+        showBanner(`All ${maxRequests} requests completed — no 429 encountered.`, 'banner-ok');
+      }
+
+      startBtn.disabled = false;
+    });
+
+    function httpPhrase(code) {
+      return { 200: 'OK', 201: 'Created', 204: 'No Content',
+               400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden',
+               404: 'Not Found', 429: 'Too Many Requests',
+               500: 'Internal Server Error', 502: 'Bad Gateway',
+               503: 'Service Unavailable' }[code] || '';
+    }
+  </script>
+</body>
+</html>
