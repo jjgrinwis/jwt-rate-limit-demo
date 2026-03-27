@@ -195,7 +195,18 @@
           <input type="radio" name="rate-limit" value="10"> 10 requests
         </label>
       </div>
-      <p class="field-hint">Total quota: <strong>50 calls / hour</strong></p>
+    </div>
+
+    <div class="field">
+      <label>Quota (calls / hour)</label>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="quota" value="50" checked> 50 calls
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="quota" value="100"> 100 calls
+        </label>
+      </div>
     </div>
 
     <div class="field">
@@ -257,7 +268,7 @@
       return `${ipHash}-${hourEpoch}`;
     }
 
-    async function buildJWT(name, limit, expired = false) {
+    async function buildJWT(name, limit, quota = 50, expired = false) {
       const header  = { alg: 'HS256', typ: 'JWT' };
       const now     = Math.floor(Date.now() / 1000);
       const iat     = expired ? now - 7200 : now;
@@ -266,7 +277,7 @@
         sub: await getSubject(),
         name,
         rate_limit: { limit, window: 60 },
-        quota: 50,
+        quota,
         iat,
         exp,
       };
@@ -337,6 +348,7 @@
     startBtn.addEventListener('click', async () => {
       const name       = document.getElementById('name-input').value.trim();
       const limit      = parseInt(document.querySelector('input[name="rate-limit"]:checked').value, 10);
+      const quota      = parseInt(document.querySelector('input[name="quota"]:checked').value, 10);
       const useExpired = optExpired.checked;
       const useInvalid = optInvalid.checked;
 
@@ -355,12 +367,12 @@
         appendLine('Using invalid token', 'line-err');
       } else {
         try {
-          const result = await buildJWT(name, limit, useExpired);
+          const result = await buildJWT(name, limit, quota, useExpired);
           token = result.token;
           if (useExpired) {
             appendLine(`Expired JWT generated for "${name}"`, 'line-err');
           } else {
-            appendLine(`JWT generated for "${name}" (limit: ${limit}/60s, quota: 50/hour)`, 'line-info');
+            appendLine(`JWT generated for "${name}" (limit: ${limit}/60s, quota: ${quota}/hour)`, 'line-info');
           }
           appendLine(`ID: ${result.sub}`, 'line-info');
         } catch (err) {
@@ -405,7 +417,7 @@
         } else if (status === 429) {
           appendLine(`${tag}  ${status} ${statusText}  (${elapsed}ms)`, 'line-429');
           if (detail) appendLine(`     ↳ ${detail}`, 'line-429');
-          showBanner(`429 Too Many Requests — rate limit reached after ${i - 1} successful calls.`, 'banner-429');
+          showBanner(`429 Too Many Requests — ${detail ?? 'rate limit reached'} after ${i - 1} successful calls.`, 'banner-429');
           stopped = true;
           break;
         } else if (status >= 200 && status < 300) {
