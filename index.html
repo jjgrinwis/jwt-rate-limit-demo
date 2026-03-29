@@ -114,7 +114,7 @@
       border: none;
       border-radius: 6px;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 0;
       padding: 0.7rem 1rem;
       cursor: pointer;
       transition: background 0.15s, opacity 0.15s;
@@ -155,10 +155,10 @@
     }
 
     .line-ok   { color: #4ade80; }
-    .line-429  { color: #f87171; font-weight: 600; }
+    .line-429  { color: #f87171; font-weight: 0; }
     .line-err  { color: #fb923c; }
     .line-info { color: #64748b; }
-    .line-done { color: #a78bfa; font-weight: 600; }
+    .line-done { color: #a78bfa; font-weight: 0; }
 
     #status-banner {
       display: none;
@@ -166,7 +166,7 @@
       border-radius: 6px;
       padding: 0.6rem 0.9rem;
       font-size: 0.9rem;
-      font-weight: 600;
+      font-weight: 0;
       text-align: center;
     }
 
@@ -186,7 +186,7 @@
     </div>
 
     <div class="field">
-      <label>Rate Limit (requests / 60 s)</label>
+      <label>Rate Limit (requests / 30 s)</label>
       <div class="radio-group">
         <label class="radio-option">
           <input type="radio" name="rate-limit" value="5" checked> 5 requests
@@ -286,7 +286,7 @@
       const payload = {
         sub: getSubject(),
         name,
-        rate_limit: { limit, window: 60 },
+        rate_limit: { limit, window: 30 },
         quota,
         iat,
         exp,
@@ -383,7 +383,7 @@
           if (useExpired) {
             appendLine(`Expired JWT generated for "${name}"`, 'line-err');
           } else {
-            appendLine(`JWT generated for "${name}" (limit: ${limit}/60s, quota: ${quota}/hour)`, 'line-info');
+            appendLine(`JWT generated for "${name}" (limit: ${limit}/30s, quota: ${quota}/hour)`, 'line-info');
           }
           appendLine(`ID: ${result.sub}`, 'line-info');
         appendLine(`Serving from: ${serveFrom === 'cache' ? 'Akamai Cache' : 'Origin'}`, 'line-info');
