@@ -201,9 +201,10 @@
     #bouncer-overlay p {
       margin-top: 1.25rem;
       color: #f87171;
-      font-size: 1.3rem;
+      font-size: clamp(0.75rem, 4vw, 1.3rem);
       font-weight: 600;
       text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      white-space: nowrap;
     }
 
     #bouncer-overlay small {
