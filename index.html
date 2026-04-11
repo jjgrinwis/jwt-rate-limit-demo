@@ -173,9 +173,53 @@
     .banner-ok  { background: #14532d; color: #4ade80; }
     .banner-429 { background: #450a0a; color: #f87171; }
     .banner-err { background: #431407; color: #fb923c; }
+
+    #bouncer-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      cursor: pointer;
+    }
+
+    #bouncer-overlay.visible {
+      display: flex;
+    }
+
+    #bouncer-overlay img {
+      width: min(600px, calc(100vw - 4rem));
+      height: auto;
+      object-fit: contain;
+      border-radius: 12px;
+      box-shadow: 0 0 60px rgba(0,0,0,0.8);
+    }
+
+    #bouncer-overlay p {
+      margin-top: 1.25rem;
+      color: #f87171;
+      font-size: 1.3rem;
+      font-weight: 600;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    }
+
+    #bouncer-overlay small {
+      margin-top: 0.4rem;
+      color: #94a3b8;
+      font-size: 0.85rem;
+    }
   </style>
 </head>
 <body>
+  <div id="bouncer-overlay" role="dialog" aria-modal="true">
+    <img src="bouncer.png" alt="Bouncer blocking entry">
+    <p>You're not getting in.</p>
+    <small>Click anywhere to dismiss</small>
+  </div>
+
   <div class="card">
     <h1>JWT Rate-Limit Demo</h1>
     <p class="subtitle">Zuplo + Akamai EdgeWorker dynamic rate-limiting</p>
@@ -312,9 +356,11 @@
 
     // ── UI helpers ───────────────────────────────────────────────────────────
 
-    const outputEl    = document.getElementById('output');
-    const banner      = document.getElementById('status-banner');
-    const startBtn    = document.getElementById('start-btn');
+    const outputEl       = document.getElementById('output');
+    const banner         = document.getElementById('status-banner');
+    const startBtn       = document.getElementById('start-btn');
+    const bouncerOverlay = document.getElementById('bouncer-overlay');
+    bouncerOverlay.addEventListener('click', () => bouncerOverlay.classList.remove('visible'));
     const optExpired  = document.getElementById('opt-expired');
     const optInvalid  = document.getElementById('opt-invalid');
 
@@ -337,6 +383,7 @@
       banner.style.display = 'none';
       banner.className = '';
       banner.textContent = '';
+      bouncerOverlay.classList.remove('visible');
     }
 
     function appendLine(text, cls) {
@@ -432,6 +479,7 @@
           appendLine(`${tag}  ${status} ${statusText}  ${cache}  (${elapsed}ms)`, 'line-429');
           if (detail) appendLine(`     ↳ ${detail}`, 'line-429');
           showBanner(`429 Too Many Requests — ${detail ?? 'rate limit reached'} after ${i - 1} successful calls.`, 'banner-429');
+          setTimeout(() => bouncerOverlay.classList.add('visible'), 1500);
           stopped = true;
           break;
         } else if (status >= 200 && status < 300) {
